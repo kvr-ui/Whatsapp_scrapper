@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { COOKIE_NAME, verifySessionToken } from './lib/auth';
+import { COOKIE_NAME, authEnabled, verifySessionToken } from './lib/auth';
 
 /** Paths reachable without a dashboard session. */
 const PUBLIC = ['/login', '/api/auth/login', '/api/cron'];
 
 export async function middleware(req: NextRequest) {
+  // Gate disabled (DASHBOARD_PASSWORD unset): let everything through.
+  if (!authEnabled()) return NextResponse.next();
+
   const { pathname } = req.nextUrl;
 
   if (PUBLIC.some((p) => pathname.startsWith(p))) return NextResponse.next();

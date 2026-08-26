@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { NavLink } from './NavLink';
 import { LogoutButton } from './LogoutButton';
+import { authEnabled } from '@/lib/auth';
 
 const NAV = [
   { href: '/',            label: 'Overview',  icon: '◈' },
@@ -37,7 +38,7 @@ export function Shell({
         </nav>
 
         <div className="sidebar-foot">
-          <LogoutButton />
+          {authEnabled() && <LogoutButton />}
         </div>
       </aside>
 

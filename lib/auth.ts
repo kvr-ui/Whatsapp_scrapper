@@ -11,6 +11,16 @@ const MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 export { COOKIE_NAME, MAX_AGE_SECONDS };
 
+/**
+ * The dashboard gate is opt-in: it is active only while DASHBOARD_PASSWORD is
+ * set. Unset the variable (locally or on Vercel) and the console is reachable
+ * without logging in. Note this leaves lead phone numbers open to anyone who
+ * has the URL.
+ */
+export function authEnabled(): boolean {
+  return Boolean(process.env.DASHBOARD_PASSWORD);
+}
+
 function secret(): string {
   const s = process.env.AUTH_SECRET;
   if (!s || s.length < 16) {
