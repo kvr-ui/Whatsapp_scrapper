@@ -21,3 +21,5 @@ legacy/exports/
 
 # OS
 .DS_Store
+.vercel
+.env*

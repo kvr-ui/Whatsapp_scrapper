@@ -7,8 +7,8 @@
     }
   ],
   "functions": {
-    "app/api/sync/route.ts": { "maxDuration": 300, "memory": 3009 },
-    "app/api/cron/weekly/route.ts": { "maxDuration": 300, "memory": 3009 },
-    "app/api/whatsapp/link/route.ts": { "maxDuration": 300, "memory": 3009 }
+    "app/api/sync/route.ts": { "maxDuration": 300, "memory": 2048 },
+    "app/api/cron/weekly/route.ts": { "maxDuration": 300, "memory": 2048 },
+    "app/api/whatsapp/link/route.ts": { "maxDuration": 300, "memory": 2048 }
   }
 }
