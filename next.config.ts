@@ -16,8 +16,17 @@ const nextConfig: NextConfig = {
     'wwebjs-mongo',
     'mongoose',
   ],
+  // Externalising a package stops the bundler relocating it, but the tracer
+  // still only ships files something statically imports. The Chromium build is
+  // read from disk by path at runtime, so bin/*.br is invisible to tracing and
+  // the function starts without it ("input directory ... does not exist").
+  // Listed explicitly, and only on the three routes that launch a browser, so
+  // the other functions stay small.
   outputFileTracingIncludes: {
     '/api/**': ['./node_modules/whatsapp-web.js/**'],
+    '/api/sync': ['./node_modules/@sparticuz/chromium/**'],
+    '/api/cron/weekly': ['./node_modules/@sparticuz/chromium/**'],
+    '/api/whatsapp/link': ['./node_modules/@sparticuz/chromium/**'],
   },
 };
 
