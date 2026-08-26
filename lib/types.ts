@@ -71,6 +71,8 @@ export interface SyncRun {
     newLeads: number;
     updatedLeads: number;
     unresolved: number;
+    /** Groups whose member list could not be read; skipped rather than emptied. */
+    skippedGroups: number;
   };
   /** Human-readable progress, updated as the run proceeds. */
   step: string | null;

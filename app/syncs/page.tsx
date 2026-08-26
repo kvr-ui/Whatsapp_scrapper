@@ -53,9 +53,15 @@ export default async function SyncsPage() {
                           : <span className="faint">0</span>}
                       </td>
                       <td className="small" style={{ maxWidth: 320 }}>
-                        {r.error
-                          ? <span style={{ color: 'var(--danger)' }}>{r.error}</span>
-                          : <span className="faint">{r.step ?? '—'}</span>}
+                        {r.error ? (
+                          <span style={{ color: 'var(--danger)' }}>{r.error}</span>
+                        ) : r.stats.skippedGroups > 0 ? (
+                          <span style={{ color: 'var(--amber)' }}>
+                            {r.stats.skippedGroups} group(s) unreadable — skipped, not emptied
+                          </span>
+                        ) : (
+                          <span className="faint">{r.step ?? '—'}</span>
+                        )}
                       </td>
                     </tr>
                   ))}

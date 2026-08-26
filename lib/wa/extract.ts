@@ -14,6 +14,8 @@ export interface RawGroup {
   name: string;
   parentId: string | null;
   participants: RawParticipant[];
+  /** True when the participant list could not be read, as opposed to being empty. */
+  metadataFailed: boolean;
 }
 
 export interface RawBroadcast {
@@ -69,15 +71,17 @@ export async function readGroups(client: Client): Promise<RawGroup[]> {
     for (const chat of chats) {
       let md = chat.groupMetadata;
       let parts = md?.participants?.getModelsArray?.() ?? [];
+      let metadataFailed = false;
 
       // Metadata loads lazily, so a group can report zero members simply
-      // because it has not been fetched yet. Force-load those.
+      // because it has not been fetched yet. Force-load those, and record it
+      // when the fetch fails — a failed read must not look like an empty group.
       if (parts.length === 0) {
         try {
           md = await GM.find(chat.id);
           parts = md?.participants?.getModelsArray?.() ?? [];
         } catch {
-          /* leave empty */
+          metadataFailed = true;
         }
       }
 
@@ -85,6 +89,7 @@ export async function readGroups(client: Client): Promise<RawGroup[]> {
         id: chat.id._serialized,
         name: chat.name || chat.formattedTitle || chat.id.user,
         parentId: md?.parentGroup?._serialized || null,
+        metadataFailed,
         participants: parts.map((p: any) => {
           // Participant ids are '@lid' privacy identifiers; the real number
           // lives on the linked contact record.
@@ -188,7 +193,7 @@ export async function readBroadcasts(client: Client): Promise<RawBroadcast[]> {
  */
 export function buildCommunities(groups: RawGroup[]): ExtractedSource[] {
   const byParent = new Map<string, RawGroup[]>();
-  for (const g of groups) {
+  for (const g of usable(groups)) {
     if (!g.parentId) continue;
     if (!byParent.has(g.parentId)) byParent.set(g.parentId, []);
     byParent.get(g.parentId)!.push(g);
@@ -210,7 +215,7 @@ export function buildCommunities(groups: RawGroup[]): ExtractedSource[] {
 
 /** Groups that belong to no community are kept as standalone sources. */
 export function buildStandaloneGroups(groups: RawGroup[]): ExtractedSource[] {
-  return groups
+  return usable(groups)
     .filter((g) => !g.parentId)
     .map((g) => ({
       type: 'group' as const,
@@ -229,6 +234,20 @@ export function buildBroadcastSources(lists: RawBroadcast[]): ExtractedSource[] 
     subgroups: [{ id: b.id, name: b.name, memberCount: b.recipients.length }],
     members: b.recipients.map((r) => ({ ...r, groups: [b.name], role: 'Member' as Role })),
   }));
+}
+
+/**
+ * Groups whose participant list was actually read. A group that failed to load
+ * would otherwise be persisted as "empty", which the store treats as everyone
+ * having left — silently deleting real memberships.
+ */
+function usable(groups: RawGroup[]): RawGroup[] {
+  return groups.filter((g) => !g.metadataFailed && g.participants.length > 0);
+}
+
+/** Groups that could not be read this run, for reporting on the sync. */
+export function unreadableGroups(groups: RawGroup[]): RawGroup[] {
+  return groups.filter((g) => g.metadataFailed);
 }
 
 /** Collapse a person appearing across several subgroups into one member record. */

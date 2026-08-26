@@ -74,16 +74,41 @@ export async function persistSources(
   }
 
   const keys = [...seen.keys()];
-  const priorDocs = await leads.find({ _id: { $in: keys } }).toArray();
+
+  // A lead first stored under its @lid is re-keyed the moment WhatsApp resolves
+  // a phone number for it. Look those old documents up too, so the re-keyed
+  // lead inherits its history instead of appearing as brand new — and so the
+  // superseded document does not linger as a duplicate.
+  const supersededLids = [...seen.values()]
+    .filter((v) => v.lead.phone && v.lead.lid && !seen.has(v.lead.lid))
+    .map((v) => v.lead.lid!);
+
+  const priorDocs = await leads
+    .find({ _id: { $in: [...keys, ...supersededLids] } })
+    .toArray();
   const prior = new Map(priorDocs.map((d) => [d._id, d]));
 
-  const syncedSourceIds = new Set(extracted.map((s) => s.sourceId));
+  // Sources that returned no members at all are not pruned: an extraction that
+  // read nothing is indistinguishable from a group everyone left, and pruning
+  // on that assumption would delete real memberships.
+  const syncedSourceIds = new Set(
+    extracted.filter((s) => s.members.length > 0).map((s) => s.sourceId),
+  );
   const ops: AnyBulkWriteOperation<Lead>[] = [];
+  const replacedIds: string[] = [];
   let newLeads = 0;
   let updatedLeads = 0;
 
   for (const [key, { lead, entries }] of seen) {
-    const old = prior.get(key);
+    let old = prior.get(key);
+
+    if (!old && lead.phone && lead.lid) {
+      const byLid = prior.get(lead.lid);
+      if (byLid) {
+        old = byLid;
+        replacedIds.push(byLid._id);
+      }
+    }
 
     // Memberships in sources this run did not touch are carried over untouched.
     const untouched = (old?.sources ?? []).filter((s) => !syncedSourceIds.has(s.sourceId));
@@ -109,6 +134,10 @@ export async function persistSources(
   }
 
   if (ops.length) await leads.bulkWrite(ops, { ordered: false });
+
+  // Only after the re-keyed documents are safely written: remove the @lid-keyed
+  // originals they replaced.
+  if (replacedIds.length) await leads.deleteMany({ _id: { $in: replacedIds } });
 
   // Drop memberships for leads that vanished from a source we just re-read.
   if (syncedSourceIds.size) {
@@ -148,6 +177,10 @@ export async function persistSources(
     leadsSeen: seen.size,
     newLeads,
     updatedLeads,
-    unresolved: [...seen.values()].filter((v) => !v.lead.phone).length,
+    // Counted against what was persisted: a lead whose number was already known
+    // from an earlier run is still reachable even if this run did not re-resolve it.
+    unresolved: [...seen.entries()].filter(
+      ([key, v]) => !(v.lead.phone ?? prior.get(key)?.phone),
+    ).length,
   };
 }

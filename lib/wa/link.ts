@@ -91,8 +91,19 @@ export async function startLinking(): Promise<{ started: boolean; message: strin
       finish(`Could not start: ${e.message}`);
     });
 
-    // Hard stop so a stuck pairing attempt cannot hold the function open.
-    setTimeout(() => finish('Timed out waiting for a QR code.'), 60_000);
+    // Hard stop so a stuck pairing attempt cannot hold the function open — and,
+    // more importantly, cannot leave an orphaned Chromium process behind when
+    // initialize() hangs without ever emitting a QR.
+    setTimeout(async () => {
+      if (resolved) return;
+      await setState({
+        status: 'error',
+        qrDataUrl: null,
+        lastError: 'Timed out waiting for a QR code.',
+      });
+      finish('Timed out waiting for a QR code.');
+      client.destroy().catch(() => {});
+    }, 60_000);
   });
 }
 

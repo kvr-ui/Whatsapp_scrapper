@@ -9,12 +9,13 @@ import {
   buildStandaloneGroups,
   readBroadcasts,
   readGroups,
+  unreadableGroups,
   waitForChatSync,
 } from './extract';
 import { persistSources } from './store';
 
 const EMPTY_STATS = {
-  sources: 0, leadsSeen: 0, newLeads: 0, updatedLeads: 0, unresolved: 0,
+  sources: 0, leadsSeen: 0, newLeads: 0, updatedLeads: 0, unresolved: 0, skippedGroups: 0,
 };
 
 /**
@@ -82,7 +83,10 @@ export async function runSync(
     }
 
     await step(`saving ${extracted.length} sources`);
-    const stats = await persistSources(extracted);
+    const stats = {
+      ...(await persistSources(extracted)),
+      skippedGroups: unreadableGroups(groups).length,
+    };
 
     const finishedAt = new Date();
     const done: Partial<SyncRun> = {
