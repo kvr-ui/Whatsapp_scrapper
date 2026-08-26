@@ -112,6 +112,29 @@ function isoDate(d: Date | string | null | undefined): string {
   return new Date(d).toISOString().replace('T', ' ').slice(0, 19);
 }
 
+/** Splits leads into fixed-size batches, e.g. 250 contacts per campaign file. */
+export function batch<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+function stampToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Name of one split part, e.g. wati-campaign-2026-08-26-part-02-of-05.csv */
+export function watiPartFilename(index: number, total: number): string {
+  const width = String(total).length;
+  const n = String(index).padStart(width, '0');
+  return `wati-campaign-${stampToday()}-part-${n}-of-${total}.csv`;
+}
+
+/** Name of the archive holding every split part. */
+export function watiZipFilename(perFile: number): string {
+  return `wati-campaign-${stampToday()}-${perFile}-per-file.zip`;
+}
+
 /** `Content-Disposition` filename, e.g. wati-campaign-2026-08-26.csv */
 export function csvFilename(kind: 'wati' | 'full'): string {
   const stamp = new Date().toISOString().slice(0, 10);
