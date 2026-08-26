@@ -64,9 +64,9 @@ export default async function OverviewPage() {
           </div>
           <div className="panel-body stack" style={{ gap: 12 }}>
             <p className="small muted" style={{ margin: 0 }}>
-              Exports every lead currently stored. Use the{' '}
-              <Link href="/leads" style={{ color: 'var(--accent)' }}>Leads</Link> page to filter
-              by community, role or date first.
+              The WATI export asks which source to pull and how many contacts per file.
+              For role, date or free-text filters, start from the{' '}
+              <Link href="/leads" style={{ color: 'var(--accent)' }}>Leads</Link> page instead.
             </p>
             <ExportButtons params={{}} />
           </div>
