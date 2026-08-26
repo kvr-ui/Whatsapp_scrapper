@@ -36,6 +36,17 @@ export function countryCodeOf(phone: string | null): string | null {
   return null;
 }
 
+/**
+ * The number without its dialling code, which is the form WATI wants in its
+ * `Phone` column (the code travels separately in `CountryCode`). Falls back to
+ * the full string when the dialling code cannot be identified.
+ */
+export function nationalNumberOf(phone: string | null): string {
+  if (!phone) return '';
+  const cc = countryCodeOf(phone);
+  return cc ? phone.slice(cc.length) : phone;
+}
+
 /** E.164 form, used only in the "All details" export. */
 export function toE164(phone: string | null): string {
   return phone ? `+${phone}` : '';

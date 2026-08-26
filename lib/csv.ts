@@ -1,5 +1,5 @@
 import type { Lead } from './types';
-import { countryCodeOf, toE164 } from './format';
+import { countryCodeOf, nationalNumberOf, toE164 } from './format';
 
 /**
  * RFC-4180 escaping. A leading =, +, - or @ is prefixed with a quoted tab so
@@ -19,12 +19,21 @@ function toCsv(headers: string[], rows: unknown[][]): string {
 }
 
 /**
- * WATI bulk-contact / campaign upload format.
+ * WATI bulk-contact / campaign upload format, matching WATI's own
+ * `Contacts_Upload_Sample_Campaign.csv`:
  *
- * WATI matches contacts on `WhatsApp Number`, which must be digits only with
- * the country code and no `+`. Any column beyond Name/WhatsApp Number is
- * imported as a custom attribute, which is how Source/Community/Groups/Role
- * become filterable inside WATI.
+ *   Name,CountryCode,Phone,AllowCampaign,AllowSMS,Attribute 1,Attribute 2
+ *   WATI Test,852,64318721,TRUE,TRUE,value 1,value 2
+ *
+ * Note `CountryCode` and `Phone` are separate: the dialling code must NOT be
+ * repeated inside Phone. Any column after AllowSMS is imported as a custom
+ * attribute, which is how Source/Community/Groups/Role become filterable
+ * inside WATI.
+ *
+ * `Name` is left blank when the lead has no WhatsApp display name — WATI shows
+ * the number itself in that case. It is deliberately NOT filled with the phone
+ * number, which would make the Name column useless for personalising
+ * campaigns.
  *
  * Leads without a resolvable phone number are omitted — WATI cannot message an
  * `@lid` identifier. The export route reports how many were skipped.
@@ -32,8 +41,10 @@ function toCsv(headers: string[], rows: unknown[][]): string {
 export function toWatiCsv(leads: Lead[]): string {
   const headers = [
     'Name',
-    'WhatsApp Number',
-    'Country Code',
+    'CountryCode',
+    'Phone',
+    'AllowCampaign',
+    'AllowSMS',
     'Source',
     'Community',
     'Groups',
@@ -45,9 +56,11 @@ export function toWatiCsv(leads: Lead[]): string {
     .map((l) => {
       const primary = pickPrimarySource(l);
       return [
-        l.name?.trim() || l.phone,
-        l.phone,
+        l.name?.trim() ?? '',
         countryCodeOf(l.phone) ?? '',
+        nationalNumberOf(l.phone),
+        'TRUE',
+        'TRUE',
         primary?.type ?? '',
         primary?.sourceLabel ?? '',
         primary ? primary.groups.join(' | ') : '',
