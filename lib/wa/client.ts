@@ -127,9 +127,31 @@ async function resolveBrowser(): Promise<{ executablePath: string; args: string[
  * Build a client backed by the MongoDB-stored session. Nothing is launched
  * until `client.initialize()` is called.
  */
+const WA_VERSIONS = 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main';
+
+/**
+ * The WhatsApp Web build to load. A hardcoded build expires after about two
+ * months: its archived HTML is removed and the phone refuses to pair with it
+ * ("Couldn't link device"). So the current build is looked up on every start;
+ * if the index is unreachable, WhatsApp's live build is used instead.
+ */
+async function resolveWebVersion(): Promise<string | null> {
+  try {
+    const res = await fetch(`${WA_VERSIONS}/versions.json`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const { currentVersion } = (await res.json()) as { currentVersion?: string };
+    return currentVersion || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function createClient(): Promise<Client> {
   const store = await getSessionStore();
   const { executablePath, args } = await resolveBrowser();
+  const webVersion = await resolveWebVersion();
 
   return new Client({
     authStrategy: new RemoteAuth({
@@ -147,12 +169,14 @@ export async function createClient(): Promise<Client> {
       // Cold Chromium on Lambda-class hardware is slow to hand over a page.
       timeout: 120_000,
     },
-    // Pin the WA Web build so a WhatsApp release cannot silently break the
-    // Store selectors the extractor relies on.
-    webVersionCache: {
-      type: 'remote',
-      remotePath:
-        'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1027725712-alpha.html',
-    },
+    ...(webVersion
+      ? {
+          webVersion,
+          webVersionCache: {
+            type: 'remote' as const,
+            remotePath: `${WA_VERSIONS}/html/{version}.html`,
+          },
+        }
+      : { webVersionCache: { type: 'none' as const } }),
   });
 }
