@@ -71,6 +71,24 @@ function bridgeSavePath(store: MongoStore, dataPath: string): MongoStore {
     await Promise.all(docs.slice(1).map((d) => bucket.delete(d._id)));
   };
 
+  // MongoStore writes the download into `path` without creating its folder.
+  // A fresh serverless instance has an empty /tmp, so the restore fails with
+  // ENOENT before Chromium ever starts. Its error handler also only covers the
+  // write side, so a failed download would hang instead of rejecting.
+  store.extract = async (options: { session: string; path: string }) => {
+    await fs.promises.mkdir(path.dirname(options.path), { recursive: true });
+    const bucket = bucketFor(options.session);
+
+    await new Promise<void>((resolve, reject) => {
+      bucket
+        .openDownloadStreamByName(`${options.session}.zip`)
+        .on('error', reject)
+        .pipe(fs.createWriteStream(options.path))
+        .on('error', reject)
+        .on('close', () => resolve());
+    });
+  };
+
   store.delete = async (options: { session: string }) => {
     const bucket = bucketFor(options.session);
     const docs = await bucket.find({ filename: `${options.session}.zip` }).toArray();
