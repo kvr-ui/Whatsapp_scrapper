@@ -26,6 +26,11 @@ export function RoleBadge({ role }: { role: string }) {
 }
 
 export function TypeBadge({ type }: { type: string }) {
-  const tone = type === 'community' ? 'accent' : type === 'broadcast' ? 'info' : undefined;
+  const tone =
+    type === 'community' ? 'accent'
+    : type === 'broadcast' ? 'info'
+    : type === 'channel' ? 'amber'
+    : type === 'contact' ? 'accent'
+    : undefined;
   return <span className="badge" data-tone={tone}>{type}</span>;
 }

@@ -59,6 +59,10 @@ export default async function SyncsPage() {
                           <span style={{ color: 'var(--amber)' }}>
                             {r.stats.skippedGroups} group(s) unreadable — skipped, not emptied
                           </span>
+                        ) : (r.stats.skippedChannels ?? 0) > 0 ? (
+                          <span style={{ color: 'var(--amber)' }}>
+                            {r.stats.skippedChannels} channel(s) would not list subscribers — admin access needed
+                          </span>
                         ) : (
                           <span className="faint">{r.step ?? '—'}</span>
                         )}

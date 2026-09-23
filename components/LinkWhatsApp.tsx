@@ -74,7 +74,11 @@ export function LinkWhatsApp({ initial }: { initial: Status }) {
           <div>
             <div style={{ fontSize: 26, opacity: 0.4, marginBottom: 8 }}>⬚</div>
             <div className="small">
-              {starting ? 'Waiting for a QR code…' : 'Press “Generate QR code” to begin.'}
+              {starting
+                ? 'Waiting for a QR code…'
+                : status.status === 'awaiting_scan'
+                  ? 'Scanned — saving the session. This takes about a minute.'
+                  : 'Press “Generate QR code” to begin.'}
             </div>
           </div>
         </div>

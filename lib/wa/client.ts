@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import mongoose from 'mongoose';
 import { Client, RemoteAuth } from 'whatsapp-web.js';
@@ -31,9 +32,57 @@ function connectMongoose() {
   return mongoosePromise;
 }
 
+/**
+ * Bridge a path mismatch between whatsapp-web.js and wwebjs-mongo.
+ *
+ * RemoteAuth (1.34) compresses the session to `<dataPath>/<session>.zip`, but
+ * MongoStore (1.1) still reads `<session>.zip` relative to the process working
+ * directory. Every save therefore throws ENOENT, which creates the GridFS
+ * bucket but uploads nothing — so pairing reports success while the session
+ * silently does not exist, and every later sync fails as "not linked".
+ *
+ * Restoring is unaffected: `extractRemoteSession` passes an absolute path.
+ *
+ * The upload reads the zip where RemoteAuth actually wrote it rather than
+ * copying it into the working directory, which is read-only on Vercel
+ * (/var/task). `delete` is replaced too: MongoStore fires its GridFS deletes
+ * without awaiting them, so a re-link could still see the old session.
+ */
+function bridgeSavePath(store: MongoStore, dataPath: string): MongoStore {
+  const bucketFor = (session: string) =>
+    new mongoose.mongo.GridFSBucket(mongoose.connection.db!, {
+      bucketName: `whatsapp-${session}`,
+    });
+
+  store.save = async (options: { session: string }) => {
+    const filename = `${options.session}.zip`;
+    const bucket = bucketFor(options.session);
+
+    await new Promise<void>((resolve, reject) => {
+      fs.createReadStream(path.join(dataPath, filename))
+        .on('error', reject)
+        .pipe(bucket.openUploadStream(filename))
+        .on('error', reject)
+        .on('finish', () => resolve());
+    });
+
+    // Keep only the upload that just finished.
+    const docs = await bucket.find({ filename }).sort({ uploadDate: -1 }).toArray();
+    await Promise.all(docs.slice(1).map((d) => bucket.delete(d._id)));
+  };
+
+  store.delete = async (options: { session: string }) => {
+    const bucket = bucketFor(options.session);
+    const docs = await bucket.find({ filename: `${options.session}.zip` }).toArray();
+    await Promise.all(docs.map((d) => bucket.delete(d._id)));
+  };
+
+  return store;
+}
+
 export async function getSessionStore(): Promise<MongoStore> {
   await connectMongoose();
-  return new MongoStore({ mongoose });
+  return bridgeSavePath(new MongoStore({ mongoose }), DATA_PATH);
 }
 
 /** Whether a linked-device session is already stored in MongoDB. */
@@ -61,7 +110,7 @@ async function resolveBrowser(): Promise<{ executablePath: string; args: string[
   const local =
     process.env.CHROME_PATH ||
     ['/usr/bin/google-chrome', '/usr/bin/chromium-browser', '/usr/bin/chromium']
-      .find((p) => require('node:fs').existsSync(p));
+      .find((p) => fs.existsSync(p));
 
   if (!local) {
     throw new Error(

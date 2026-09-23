@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { startLinking } from '@/lib/wa/link';
 
 export const runtime = 'nodejs';
@@ -11,7 +11,9 @@ export const maxDuration = 300;
  */
 export async function POST() {
   try {
-    return NextResponse.json(await startLinking());
+    // Pairing outlives this response: the scan, then RemoteAuth's upload, happen
+    // after the QR is returned. `after` keeps the function alive until then.
+    return NextResponse.json(await startLinking({ keepAlive: (work) => after(() => work) }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ started: false, message }, { status: 500 });

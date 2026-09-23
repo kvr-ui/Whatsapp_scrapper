@@ -16,7 +16,7 @@ export default async function SourcesPage() {
           <div>
             <h2>{sources.length} source{sources.length === 1 ? '' : 's'}</h2>
             <div className="eyebrow" style={{ marginTop: 3 }}>
-              Communities, standalone groups and broadcast lists
+              Communities, standalone groups, broadcast lists, channels and saved contacts
             </div>
           </div>
         </div>

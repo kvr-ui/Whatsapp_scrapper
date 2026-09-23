@@ -22,9 +22,14 @@ export function buildLeadFilter(q: LeadQuery): Filter<Lead> {
     const rx = new RegExp(escapeRegex(q.search.trim()), 'i');
     filter.$or = [{ name: rx }, { phone: rx }, { _id: rx }];
   }
-  if (q.sourceId) filter['sources.sourceId'] = q.sourceId;
-  if (q.type) filter['sources.type'] = q.type;
-  if (q.role) filter['sources.role'] = q.role;
+  // Source, type and role must hold for the same membership — matched
+  // separately, "Admin in communities" would also catch a group admin who is a
+  // plain member of some community.
+  const membership: Record<string, string> = {};
+  if (q.sourceId) membership.sourceId = q.sourceId;
+  if (q.type) membership.type = q.type;
+  if (q.role) membership.role = q.role;
+  if (Object.keys(membership).length) filter.sources = { $elemMatch: membership };
   if (q.resolved === 'resolved') filter.phone = { $ne: null };
   if (q.resolved === 'unresolved') filter.phone = null;
   if (q.newWithinDays && q.newWithinDays > 0) {

@@ -60,6 +60,8 @@ export function LeadFilters({ sources }: { sources: Pick<Source, '_id' | 'label'
             <option value="community">Community</option>
             <option value="group">Group</option>
             <option value="broadcast">Broadcast</option>
+            <option value="channel">Channel</option>
+            <option value="contact">Saved contacts</option>
           </select>
         </div>
 

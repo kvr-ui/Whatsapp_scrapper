@@ -1,12 +1,12 @@
 /** Where a lead was picked up from. */
-export type SourceType = 'community' | 'broadcast' | 'group';
+export type SourceType = 'community' | 'broadcast' | 'group' | 'channel' | 'contact';
 
 export type Role = 'Super Admin' | 'Admin' | 'Member';
 
-/** One membership: this lead appearing in one community / broadcast list. */
+/** One membership: this lead appearing in one community / broadcast list / channel. */
 export interface LeadSource {
   type: SourceType;
-  /** Parent-group id for communities, chat id for broadcast lists. */
+  /** Parent-group id for communities, chat id for broadcast lists and channels. */
   sourceId: string;
   sourceLabel: string;
   /** Subgroup names the lead appears in (communities only). */
@@ -40,7 +40,7 @@ export interface Subgroup {
   memberCount: number;
 }
 
-/** A community or broadcast list, as last seen by a sync. */
+/** A community, group, broadcast list or channel, as last seen by a sync. */
 export interface Source {
   _id: string;
   type: SourceType;
@@ -73,6 +73,8 @@ export interface SyncRun {
     unresolved: number;
     /** Groups whose member list could not be read; skipped rather than emptied. */
     skippedGroups: number;
+    /** Channels that refused to name their subscribers — you are not an admin. */
+    skippedChannels?: number;
   };
   /** Human-readable progress, updated as the run proceeds. */
   step: string | null;

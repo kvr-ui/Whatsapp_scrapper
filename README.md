@@ -17,15 +17,43 @@ two CSV export formats. Deploys to Vercel.
 
 ## What it does
 
-- **Extracts** every community, subgroup, standalone group and broadcast list
-  the linked WhatsApp account can see, resolving `@lid` privacy identifiers to
-  real phone numbers via the contact store.
+- **Extracts** every community, subgroup, standalone group, broadcast list and
+  channel the linked WhatsApp account can see, plus the account's own saved
+  contacts, resolving `@lid` privacy identifiers to real phone numbers via the
+  contact store.
 - **Stores** each person once, keyed by phone number, with one entry per
   community they belong to. Re-syncing never duplicates a lead and never
   overwrites when they were first seen.
 - **Runs weekly** — every Monday 02:00 UTC (07:30 IST) via Vercel Cron.
 - **Exports** two CSV shapes: a WATI campaign upload and a full-detail dump.
   Both honour whatever filters the Leads page has applied.
+
+### Saved contacts
+
+The address book is swept as its own source (`Saved contacts`). It is the only
+source that needs no `@lid` resolution — the numbers are already real — so it
+is usually the highest-yield one after communities. By default it takes only
+numbers actually saved on the linked phone; pass `allContacts` to `runSync` to
+widen it to everyone WhatsApp knows the account has dealt with, which is much
+larger and much noisier.
+
+### What channels can actually give you
+
+Channels are the most closed surface WhatsApp has, and the yield is nothing
+like a group's:
+
+- Only a channel's **own admins** can pull a subscriber list at all. A channel
+  you merely follow returns nothing — the sync records it and reports it in the
+  sync log as `channel(s) would not list subscribers`, rather than silently
+  filing it as empty.
+- Even as an admin, subscribers come back as `@lid` identifiers. Those become
+  real phone numbers only for people the **linked phone already has saved as a
+  contact**; everyone else is stored under their `@lid` and shows up in the
+  `Unresolved` column on Sources.
+
+So expect a channel with thousands of subscribers to produce a few dozen
+dialable leads. That is a WhatsApp restriction, not a gap in the extractor —
+groups and communities remain the volume sources.
 
 ---
 
@@ -154,7 +182,7 @@ seen and active flag.
 app/
   page.tsx              Overview — stats, weekly growth, sources, recent syncs
   leads/                Filterable lead table + exports
-  sources/              Communities, groups and broadcast lists
+  sources/              Communities, groups, broadcast lists, channels, contacts
   syncs/                Sync history
   setup/                QR pairing
   login/

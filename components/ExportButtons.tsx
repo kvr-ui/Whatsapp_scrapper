@@ -12,6 +12,8 @@ const TYPE_LABEL: Record<SourceType, string> = {
   community: 'Communities',
   group: 'Groups',
   broadcast: 'Broadcast lists',
+  channel: 'Channels',
+  contact: 'Saved contacts',
 };
 
 /**
@@ -132,7 +134,7 @@ export function ExportButtons({ params }: { params: Record<string, string> }) {
               <option value="">
                 {sources === null ? 'Loading sources…' : 'All sources'}
               </option>
-              {(['community', 'group', 'broadcast'] as SourceType[]).map((t) =>
+              {(['community', 'group', 'broadcast', 'channel', 'contact'] as SourceType[]).map((t) =>
                 grouped(t).length === 0 ? null : (
                   <optgroup key={t} label={TYPE_LABEL[t]}>
                     {grouped(t).map((s) => (

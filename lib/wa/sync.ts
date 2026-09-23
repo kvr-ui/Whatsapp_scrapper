@@ -5,17 +5,24 @@ import type { SyncRun, SyncTrigger } from '../types';
 import { createClient, hasStoredSession } from './client';
 import {
   buildBroadcastSources,
+  buildChannelSources,
   buildCommunities,
+  buildContactSources,
   buildStandaloneGroups,
   readBroadcasts,
+  readChannels,
+  readContacts,
   readGroups,
+  unlistedChannels,
   unreadableGroups,
   waitForChatSync,
 } from './extract';
+import type { RawChannel } from './extract';
 import { persistSources } from './store';
 
 const EMPTY_STATS = {
-  sources: 0, leadsSeen: 0, newLeads: 0, updatedLeads: 0, unresolved: 0, skippedGroups: 0,
+  sources: 0, leadsSeen: 0, newLeads: 0, updatedLeads: 0, unresolved: 0,
+  skippedGroups: 0, skippedChannels: 0,
 };
 
 /**
@@ -26,7 +33,13 @@ const EMPTY_STATS = {
  */
 export async function runSync(
   trigger: SyncTrigger,
-  opts: { includeBroadcasts?: boolean } = {},
+  opts: {
+    includeBroadcasts?: boolean;
+    includeChannels?: boolean;
+    includeContacts?: boolean;
+    /** Widen the contact sweep past the address book to everyone WhatsApp knows. */
+    allContacts?: boolean;
+  } = {},
 ): Promise<SyncRun> {
   await ensureIndexes();
   const { syncRuns } = await collections();
@@ -51,6 +64,7 @@ export async function runSync(
   };
 
   let client: Client | null = null;
+  let channels: RawChannel[] = [];
 
   try {
     if (!(await hasStoredSession())) {
@@ -82,10 +96,25 @@ export async function runSync(
       extracted.push(...buildBroadcastSources(lists));
     }
 
+    if (opts.includeChannels !== false) {
+      await step('reading channels');
+      // Channels are read best-effort: WhatsApp exposes their subscribers only
+      // to the channel's own admins, so a failure here must not fail the run.
+      channels = await readChannels(client).catch(() => []);
+      extracted.push(...buildChannelSources(channels));
+    }
+
+    if (opts.includeContacts !== false) {
+      await step('reading contacts');
+      const contacts = await readContacts(client, { savedOnly: !opts.allContacts }).catch(() => []);
+      extracted.push(...buildContactSources(contacts));
+    }
+
     await step(`saving ${extracted.length} sources`);
     const stats = {
       ...(await persistSources(extracted)),
       skippedGroups: unreadableGroups(groups).length,
+      skippedChannels: unlistedChannels(channels).length,
     };
 
     const finishedAt = new Date();
